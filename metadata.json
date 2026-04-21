@@ -1,0 +1,6 @@
+{
+  "name": "SmartStore Traffic Analytics",
+  "description": "AI-powered crowd analytics for stores, analyzing age, gender, and time distribution via camera feed.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}

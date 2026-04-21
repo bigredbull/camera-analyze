@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "AnalyticRecord": {
+      "title": "Analytic Record",
+      "description": "Snapshot of crowd analytics at a specific time.",
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Time of analysis"
+        },
+        "totalPeople": {
+          "type": "integer",
+          "description": "Total number of people detected"
+        },
+        "ageDistribution": {
+          "type": "object",
+          "description": "Count of people by age group (e.g., child, teen, adult, senior)"
+        },
+        "genderDistribution": {
+          "type": "object",
+          "description": "Count of people by gender (e.g., male, female)"
+        },
+        "rawAnalysis": {
+          "type": "string",
+          "description": "Raw AI analysis text"
+        }
+      },
+      "required": ["timestamp", "totalPeople"]
+    }
+  },
+  "firestore": {
+    "analytics": {
+      "schema": "AnalyticRecord",
+      "description": "Timed records of crowd demographics."
+    }
+  }
+}
