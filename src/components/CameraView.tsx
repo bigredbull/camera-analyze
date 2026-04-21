@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, RefreshCw, Play, Square, Loader2 } from 'lucide-react';
+import { Camera, RefreshCw, Play, Square, Loader2, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface CameraViewProps {
@@ -7,9 +7,10 @@ interface CameraViewProps {
   isAnalyzing: boolean;
   interval: number;
   facingMode: 'user' | 'environment';
+  offlineMode?: boolean;
 }
 
-export default function CameraView({ onCapture, isAnalyzing, interval, facingMode }: CameraViewProps) {
+export default function CameraView({ onCapture, isAnalyzing, interval, facingMode, offlineMode }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -80,10 +81,30 @@ export default function CameraView({ onCapture, isAnalyzing, interval, facingMod
     }
   }, [countdown, autoCapture, isAnalyzing, captureFrame, interval]);
 
+  // Power-saving Camera Logic: Open only when needed
+  useEffect(() => {
+    // If monitoring and countdown is far from snapshot, save power by stopping camera
+    if (autoCapture) {
+      if (countdown <= 3 && !stream) {
+        startCamera();
+      } else if (countdown > 3 && stream) {
+        stopCamera();
+      }
+    } else {
+      // Manual mode: start camera only on first load or if explicitly requested
+      // For simplicity, we keep it on when not monitoring
+      if (!stream && !autoCapture) {
+        startCamera();
+      }
+    }
+    
+    // Cleanup on unmount handled by other effect or this one
+  }, [countdown, autoCapture, stream]);
+
   // Restart camera when facingMode changes
   useEffect(() => {
     stopCamera();
-    startCamera();
+    if (!autoCapture) startCamera(); // Only start immediately if not in power-save auto mode
     return () => stopCamera();
   }, [facingMode]);
 
@@ -101,13 +122,27 @@ export default function CameraView({ onCapture, isAnalyzing, interval, facingMod
         </div>
       ) : (
         <>
-          <video 
-            ref={videoRef} 
-            autoPlay 
-            playsInline 
-            muted 
-            className="w-full h-full object-cover"
-          />
+          <div className="absolute inset-0 flex items-center justify-center bg-brand-surface">
+            {(!stream && autoCapture && countdown > 3) ? (
+              <div className="flex flex-col items-center gap-4 text-brand-muted opacity-40 animate-pulse">
+                <div className="w-16 h-16 rounded-full border-2 border-brand-line flex items-center justify-center">
+                  <Clock size={32} />
+                </div>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-center">
+                  Power Save Mode Active<br/>
+                  Next Snapshot in {countdown}s
+                </p>
+              </div>
+            ) : (
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                className={`w-full h-full object-cover transition-opacity duration-1000 ${stream ? 'opacity-100' : 'opacity-0'}`}
+              />
+            )}
+          </div>
           <canvas ref={canvasRef} className="hidden" />
           
           <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
@@ -134,9 +169,9 @@ export default function CameraView({ onCapture, isAnalyzing, interval, facingMod
               </div>
 
               <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${stream ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
+                <div className={`w-3 h-3 rounded-full ${offlineMode ? 'bg-orange-500' : stream ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
                 <span className="text-white text-xs font-mono font-medium uppercase tracking-widest opacity-80">
-                  {stream ? 'Live Feed' : 'Offline'}
+                  {offlineMode ? 'Offline Storage' : stream ? 'Live Feed' : 'Offline'}
                 </span>
               </div>
             </div>

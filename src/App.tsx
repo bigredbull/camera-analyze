@@ -20,12 +20,55 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'realtime' | 'history'>('realtime');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(settingsService.getSettings());
+  const [pendingSync, setPendingSync] = useState(0);
 
   useEffect(() => {
     setRecords(storageService.getRecords());
+    setPendingSync(storageService.getPendingCaptures().length);
   }, []);
 
+  // Sync automatically when online and offlineMode is disabled
+  useEffect(() => {
+    if (!settings.offlineMode && pendingSync > 0 && !isAnalyzing) {
+      syncPending();
+    }
+  }, [settings.offlineMode, pendingSync]);
+
+  const syncPending = async () => {
+    const pending = storageService.getPendingCaptures();
+    if (pending.length === 0) return;
+    
+    setIsAnalyzing(true);
+    for (const item of pending) {
+      try {
+        const result = await analyzeTrafficImage(item.base64);
+        if (result) {
+          const newRecord = { ...result, timestamp: item.timestamp, id: item.id } as AnalyticRecord;
+          storageService.saveRecord(newRecord);
+          // Only update UI state once at the end or incrementally
+          setRecords(prev => [...prev, newRecord]);
+          storageService.removePendingCapture(item.id);
+          setPendingSync(prev => Math.max(0, prev - 1));
+        }
+      } catch (error) {
+        console.error("Sync failed for item:", item.id, error);
+        break; // Stop syncing if connection fails
+      }
+    }
+    setIsAnalyzing(false);
+  };
+
   const handleCapture = async (base64: string) => {
+    if (settings.offlineMode) {
+      storageService.savePendingCapture({
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        base64: base64
+      });
+      setPendingSync(prev => prev + 1);
+      return;
+    }
+
     setIsAnalyzing(true);
     try {
       const result = await analyzeTrafficImage(base64);
@@ -36,7 +79,8 @@ export default function App() {
       }
     } catch (error) {
       console.error("Failed to analyze traffic:", error);
-      alert("AI analysis failed. Please check your connection or try again.");
+      // If direct analysis fails, maybe auto-save to pending?
+      alert("AI analysis failed. Your system might be offline. Consider enabling 'Offline Mode' in settings.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -71,9 +115,18 @@ export default function App() {
           </h1>
         </div>
         <div className="flex items-center gap-4">
+          {pendingSync > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/30 rounded-md">
+              <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-orange-400 uppercase tracking-tight">
+                {isAnalyzing ? 'Syncing...' : `${pendingSync} Pending`}
+              </span>
+            </div>
+          )}
+          
           <div className="status-badge">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#34d399] animate-pulse" />
-            Live Feed Active
+            <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${settings.offlineMode ? 'bg-orange-500' : 'bg-[#34d399]'}`} />
+            {settings.offlineMode ? 'Offline Mode' : 'Live Feed Active'}
           </div>
           <button 
             onClick={() => setIsSettingsOpen(true)}
@@ -98,6 +151,7 @@ export default function App() {
           isAnalyzing={isAnalyzing} 
           interval={settings.analysisInterval}
           facingMode={settings.cameraFacingMode}
+          offlineMode={settings.offlineMode}
         />
       </main>
 

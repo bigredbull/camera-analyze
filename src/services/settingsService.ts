@@ -1,12 +1,19 @@
+export type AIProvider = 'gemini' | 'openai';
+
 export interface AppSettings {
-  analysisInterval: number; // in seconds
+  analysisInterval: number;
   cameraFacingMode: 'user' | 'environment';
+  aiProvider: AIProvider;
+  openaiKey?: string;
+  offlineMode: boolean;
 }
 
 const SETTINGS_KEY = "store_analytics_settings";
 const DEFAULT_SETTINGS: AppSettings = {
-  analysisInterval: 5,
-  cameraFacingMode: 'environment'
+  analysisInterval: 10,
+  cameraFacingMode: 'environment',
+  aiProvider: 'gemini',
+  offlineMode: false
 };
 
 export const settingsService = {

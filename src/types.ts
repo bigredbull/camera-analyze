@@ -19,6 +19,12 @@ export interface AnalyticRecord {
   rawAnalysis?: string;
 }
 
+export interface PendingCapture {
+  id: string;
+  timestamp: string;
+  base64: string;
+}
+
 export interface ChartDataPoint {
   time: string;
   count: number;

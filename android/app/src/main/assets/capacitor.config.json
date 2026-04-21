@@ -1,0 +1,6 @@
+{
+	"appId": "com.visionmetrics.pro",
+	"appName": "VisionMetrics Pro",
+	"webDir": "dist",
+	"bundledWebRuntime": false
+}
